@@ -1,4 +1,5 @@
 .svn
+.vs
 
 Bin
 Obj
@@ -21,4 +22,5 @@ _ReSharper.CameraControl.ServerTest
 /Setup/*.exe
 /.vs/CameraControl/v14
 *.suo
+*.orig
 /Setup/lang.txt
