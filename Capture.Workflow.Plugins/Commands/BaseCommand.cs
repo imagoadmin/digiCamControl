@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using CameraControl.Devices;
 using Capture.Workflow.Core.Classes;
-using Jint;
+using Capture.Workflow.Core.Scripting;
 
 namespace Capture.Workflow.Plugins.Commands
 {
@@ -17,6 +14,11 @@ namespace Capture.Workflow.Plugins.Commands
             var command = new WorkFlowCommand();
             command.Properties.Items.Add(new CustomProperty()
             {
+                Name = "(Name)",
+                PropertyType = CustomPropertyType.String
+            });
+            command.Properties.Items.Add(new CustomProperty()
+            {
                 Name = "Condition",
                 PropertyType = CustomPropertyType.Code
             });
@@ -25,17 +27,18 @@ namespace Capture.Workflow.Plugins.Commands
 
         public bool CheckCondition(WorkFlowCommand command, Context context)
         {
-            if (string.IsNullOrWhiteSpace(command.Properties["Condition"].ToString(context)))
-                return true;
-
-            var var = new Engine();
-
-            foreach (var variable in context.WorkFlow.Variables.Items)
+            try
             {
-                //e.Parameters[variable.Name] = new Exception(variable.Value);
-                var.SetValue(variable.Name, variable.GetAsObject());
+                if (string.IsNullOrWhiteSpace(command.Properties["Condition"].ToString(context)))
+                    return true;
+
+                return ScriptEngine.Instance.Evaluate(command.Properties["Condition"].ToString(context), context);
             }
-            return var.Execute(command.Properties["Condition"].ToString(context)).GetCompletionValue().AsBoolean();
+            catch (Exception e)
+            {
+                Log.Error("CheckCondition error " + command.Name, e);
+            }
+            return false;
         }
     }
 }

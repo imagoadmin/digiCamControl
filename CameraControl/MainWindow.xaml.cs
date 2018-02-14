@@ -149,10 +149,17 @@ namespace CameraControl
                 case WindowsCmdConsts.Restore:
                     Dispatcher.BeginInvoke(new Action(delegate
                     {
-                        this.Show();
-                        this.WindowState = WindowState.Normal;
-                        this.Activate();
-                        this.Focus();
+                        try
+                        {
+                            this.Show();
+                            this.WindowState = WindowState.Normal;
+                            this.Activate();
+                            this.Focus();
+                        }
+                        catch (Exception e)
+                        {
+                            Log.Debug("Unable to restore window", e);
+                        }
                     }));
                     break;
                 case CmdConsts.All_Minimize:
@@ -398,6 +405,15 @@ namespace CameraControl
                     });
                 }
             }
+
+            Dispatcher.BeginInvoke(
+                new Action(
+                    delegate
+                    {
+                        Thread.Sleep(1500);
+                        ServiceProvider.WindowsManager.ExecuteCommand(WindowsCmdConsts.Zoom_Image_Fit);
+                    }));
+
         }
 
         private void DeviceManager_CameraSelected(ICameraDevice oldcameraDevice, ICameraDevice newcameraDevice)

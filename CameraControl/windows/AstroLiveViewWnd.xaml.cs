@@ -45,7 +45,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using AForge.Imaging.Filters;
+using Accord.Imaging.Filters;
 using CameraControl.Core;
 using CameraControl.Core.Classes;
 using CameraControl.Core.Interfaces;
@@ -79,7 +79,6 @@ namespace CameraControl.windows
             Brightness = 0;
             Freeze = false;
             InitializeComponent();
-            ServiceProvider.Settings.ApplyTheme(this);
         }
 
         #region Implementation of IWindow

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using CameraControl.Devices;
-using CameraControl.Devices.Classes;
 using Capture.Workflow.Core;
 using Capture.Workflow.Core.Classes;
 using Capture.Workflow.Core.Interface;
@@ -193,16 +193,16 @@ namespace Capture.Workflow.ViewModel
 
 
         public RelayCommand<PluginInfo> NewViewCommand { get; set; }
-        public RelayCommand DeleteViewCommand { get; set; }
+        public RelayCommand<WorkFlowView> DeleteViewCommand { get; set; }
 
         public RelayCommand<PluginInfo> NewViewElementCommand { get; set; }
-        public RelayCommand DeleteViewElementCommand { get; set; }
+        public RelayCommand<WorkFlowViewElement> DeleteViewElementCommand { get; set; }
 
         public RelayCommand NewVariableCommand { get; set; }
         public RelayCommand DeleteVariableCommand { get; set; }
 
         public RelayCommand<PluginInfo> NewCommandCommand { get; set; }
-        public RelayCommand DeleteCommandCommand { get; set; }
+        public RelayCommand<WorkFlowCommand> DeleteCommandCommand { get; set; }
 
         public RelayCommand PreviewViewCommand { get; set; }
         public RelayCommand RunCommand { get; set; }
@@ -213,22 +213,22 @@ namespace Capture.Workflow.ViewModel
         public RelayCommand LoadCommand { get; set; }
 
         public RelayCommand<PluginInfo> NewViewCommandCommand { get; set; }
-        public RelayCommand DeleteViewCommandCommand { get; set; }
+        public RelayCommand<WorkFlowCommand> DeleteViewCommandCommand { get; set; }
 
 
         public RelayCommand<PluginInfo> NewEventCommand { get; set; }
-        public RelayCommand DeleteEventCommand { get; set; }
+        public RelayCommand<WorkFlowEvent> DeleteEventCommand { get; set; }
 
         public RelayCommand<PluginInfo> NewEventCommandCommand { get; set; }
-        public RelayCommand DeleteEventCommandCommand { get; set; }
+        public RelayCommand<WorkFlowCommand> DeleteEventCommandCommand { get; set; }
 
         public WorkflowEditorViewModel()
         {
             NewViewCommand = new RelayCommand<PluginInfo>(NewView);
-            DeleteViewCommand = new RelayCommand(DeleteView);
+            DeleteViewCommand = new RelayCommand<WorkFlowView>(DeleteView);
 
             NewViewElementCommand = new RelayCommand<PluginInfo>(NewViewElement);
-            DeleteViewElementCommand = new RelayCommand(DeleteViewElement);
+            DeleteViewElementCommand = new RelayCommand<WorkFlowViewElement>(DeleteViewElement);
 
             NewVariableCommand = new RelayCommand(NewVariable);
             DeleteVariableCommand = new RelayCommand(DeleteVariable);
@@ -245,25 +245,25 @@ namespace Capture.Workflow.ViewModel
             LoadCommand = new RelayCommand(Load);
 
             NewCommandCommand = new RelayCommand<PluginInfo>(NewCommand);
-            DeleteCommandCommand = new RelayCommand(DeleteCommand);
+            DeleteCommandCommand = new RelayCommand<WorkFlowCommand>(DeleteCommand);
 
             NewViewCommandCommand = new RelayCommand<PluginInfo>(AddViewCommand);
-            DeleteViewCommandCommand = new RelayCommand(RemoveViewCommand);
+            DeleteViewCommandCommand = new RelayCommand<WorkFlowCommand>(RemoveViewCommand);
 
             RunCommand = new RelayCommand(Run);
 
             NewEventCommand = new RelayCommand<PluginInfo>(NewEvent);
-            DeleteEventCommand = new RelayCommand(DeleteEvent);
+            DeleteEventCommand = new RelayCommand<WorkFlowEvent>(DeleteEvent);
 
             NewEventCommandCommand=new RelayCommand<PluginInfo>(NewEventCommandMethod);
-            DeleteEventCommandCommand=new RelayCommand(DeleteEventCommandMethod);
+            DeleteEventCommandCommand=new RelayCommand<WorkFlowCommand>(DeleteEventCommandMethod);
         }
 
-        private void DeleteEventCommandMethod()
+        private void DeleteEventCommandMethod(WorkFlowCommand command)
         {
-            if (SelectedEvent != null && SelectedEventCommand != null)
+            if (SelectedEvent != null && command != null)
             {
-                SelectedEvent.CommandCollection.Items.Remove(SelectedEventCommand);
+                SelectedEvent.CommandCollection.Items.Remove(command);
                 if (SelectedEvent.CommandCollection.Items.Count > 0)
                     SelectedEventCommand = SelectedEvent.CommandCollection.Items[0];
             }
@@ -277,17 +277,17 @@ namespace Capture.Workflow.ViewModel
                 var wCommand = commandPlugin.CreateCommand();
                 wCommand.Instance = commandPlugin;
                 wCommand.PluginInfo = pluginInfo;
-                wCommand.Name = pluginInfo.Name;
+                wCommand.Name = GetNewName(pluginInfo.Name, SelectedEvent.CommandCollection.Items.Select(x => x.Name).ToList()); 
                 SelectedEvent.CommandCollection.Items.Add(wCommand);
                 SelectedEventCommand = wCommand;
             }
         }
 
-        private void DeleteEvent()
+        private void DeleteEvent(WorkFlowEvent flowEvent)
         {
-            if (SelectedEvent != null)
+            if (flowEvent != null)
             {
-                CurrentWorkFlow.Events.Remove(SelectedEvent);
+                CurrentWorkFlow.Events.Remove(flowEvent);
                 if (CurrentWorkFlow.Events.Count > 0)
                     SelectedEvent = CurrentWorkFlow.Events[0];
             }
@@ -300,15 +300,15 @@ namespace Capture.Workflow.ViewModel
             event_.Parent = CurrentWorkFlow;
             event_.Instance = plugin;
             event_.PluginInfo = pluginInfo;
-            event_.Name = pluginInfo.Name;
+            event_.Name = GetNewName(pluginInfo.Name, CurrentWorkFlow.Events.Select(x => x.Name).ToList());
             CurrentWorkFlow.Events.Add(event_);
             SelectedEvent = event_;
         }
 
-        private void RemoveViewCommand()
+        private void RemoveViewCommand(WorkFlowCommand command)
         {
-            if (SelectedViewCommand != null)
-                SelectedViewCommandCollection?.Items.Remove(SelectedViewCommand);
+            if (command != null)
+                SelectedViewCommandCollection?.Items.Remove(command);
             if (SelectedViewCommandCollection?.Items.Count > 0)
             {
                 SelectedViewCommand = SelectedViewCommandCollection.Items[0];
@@ -323,7 +323,8 @@ namespace Capture.Workflow.ViewModel
                 var wCommand = commandPlugin.CreateCommand();
                 wCommand.Instance = commandPlugin;
                 wCommand.PluginInfo = pluginInfo;
-                wCommand.Name = pluginInfo.Name;
+                wCommand.Name = GetNewName(pluginInfo.Name,
+                    SelectedViewCommandCollection.Items.Select(x => x.Name).ToList());
                 SelectedViewCommandCollection.Items.Add(wCommand);
                 SelectedViewCommand = wCommand;
             }
@@ -335,10 +336,11 @@ namespace Capture.Workflow.ViewModel
             wnd.ShowDialog();
         }
 
-        private void DeleteCommand()
+        private void DeleteCommand(WorkFlowCommand command)
         {
-            if (SelectedCommand != null)
-                SelectedCommandCollection?.Items.Remove(SelectedCommand);
+            if (command != null)
+                SelectedCommandCollection?.Items.Remove(command);
+
             if (SelectedCommandCollection?.Items.Count > 0)
             {
                 SelectedCommand = SelectedCommandCollection.Items[0];
@@ -355,27 +357,28 @@ namespace Capture.Workflow.ViewModel
                 var wCommand = commandPlugin.CreateCommand();
                 wCommand.Instance = commandPlugin;
                 wCommand.PluginInfo = pluginInfo;
-                wCommand.Name = pluginInfo.Name;
+                wCommand.Name = GetNewName(pluginInfo.Name,
+                    SelectedCommandCollection.Items.Select(x => x.Name).ToList());
                 SelectedCommandCollection.Items.Add(wCommand);
                 SelectedCommand = wCommand;
             }
         }
 
-        private void DeleteViewElement()
+        private void DeleteViewElement(WorkFlowViewElement element)
         {
-            if (SelectedElement != null && SelectedView != null)
+            if (element != null && SelectedView != null)
             {
-                SelectedView.Elements.Remove(SelectedElement);
+                SelectedView.Elements.Remove(element);
                 if (SelectedView.Elements.Count > 0)
                     SelectedElement = SelectedView.Elements[SelectedView.Elements.Count - 1];
             }
         }
 
-        private void DeleteView()
+        private void DeleteView(WorkFlowView flowView)
         {
-            if (SelectedView != null)
+            if (flowView != null)
             {
-                CurrentWorkFlow.Views.Remove(SelectedView);
+                CurrentWorkFlow.Views.Remove(flowView);
                 if (CurrentWorkFlow.Views.Count > 0)
                     SelectedView = CurrentWorkFlow.Views[CurrentWorkFlow.Views.Count - 1];
             }
@@ -395,7 +398,11 @@ namespace Capture.Workflow.ViewModel
 
         private void NewVariable()
         {
-            CurrentWorkFlow.Variables.Items.Add(new Variable() { Name = "Variable#" + CurrentWorkFlow.Variables.Items.Count });
+            CurrentWorkFlow.Variables.Items.Add(new Variable()
+                {
+                    Name = GetNewName("Variable#", CurrentWorkFlow.Variables.Items.Select(x => x.Name).ToList())
+                }
+            );
         }
 
         private void Load()
@@ -491,7 +498,7 @@ namespace Capture.Workflow.ViewModel
                 WorkFlowViewElement element = plugin.CreateElement(SelectedView);
                 element.Instance = plugin;
                 element.PluginInfo = pluginInfo;
-                element.Name = pluginInfo.Name;
+                element.Name = GetNewName(pluginInfo.Name, SelectedView.Elements.Select(x => x.Name).ToList()); 
                 element.Parent = SelectedView;
                 SelectedView.Elements.Add(element);
                 SelectedElement = element;
@@ -509,10 +516,24 @@ namespace Capture.Workflow.ViewModel
             WorkFlowView view = plugin.CreateView();
             view.Instance = plugin;
             view.PluginInfo = pluginInfo;
-            view.Name = pluginInfo.Name;
+            view.Name = GetNewName(pluginInfo.Name, CurrentWorkFlow.Views.Select(x => x.Name).ToList());
             view.Parent = CurrentWorkFlow;
             CurrentWorkFlow.Views.Add(view);
             SelectedView = view;
         }
+
+        private string GetNewName(string baseName, IList<string> names)
+        {
+            int i = 1;
+            while (true)
+            {
+                var newName = baseName + " #" + i;
+                if (!names.Contains(newName))
+                    return newName;
+                i++;
+            }
+        }
+
+
     }
 }

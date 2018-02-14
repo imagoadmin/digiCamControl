@@ -25,6 +25,11 @@ namespace Capture.Workflow.Plugins.ViewElements
             WorkFlowViewElement element = new WorkFlowViewElement();
             element.Properties.Items.Add(new CustomProperty()
             {
+                Name = "(Name)",
+                PropertyType = CustomPropertyType.String
+            });
+            element.Properties.Items.Add(new CustomProperty()
+            {
                 Name = "Caption",
                 PropertyType = CustomPropertyType.String
             });
@@ -119,7 +124,7 @@ namespace Capture.Workflow.Plugins.ViewElements
                 HorizontalAlignment = HorizontalAlignment.Center
             };
             viewElement.SetSize(slider, context);
-
+            
             slider.DataContext = viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].ToString(context)];
             slider.SetBinding(RangeBase.ValueProperty, "Value");
 

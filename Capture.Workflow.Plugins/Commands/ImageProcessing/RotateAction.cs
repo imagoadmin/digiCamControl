@@ -16,6 +16,7 @@ namespace Capture.Workflow.Plugins.Commands.ImageProcessing
     [PluginType(PluginType.Command)]
     [DisplayName("Rotate")]
     [Group("ImageProcessing")]
+    [Icon("Rotate3d")]
     public class RotateAction : BaseCommand, IWorkflowCommand
     {
         public WorkFlowCommand CreateCommand()
@@ -42,7 +43,7 @@ namespace Capture.Workflow.Plugins.Commands.ImageProcessing
             {
                 context.ImageStream.Seek(0, SeekOrigin.Begin);
                 image.Rotate((double)context.WorkFlow.Variables[command.Properties["Angle"].ToString(context)].GetAsObject());
-                image.Write(context.ImageStream, MagickFormat.Jpg);
+                image.Write(context.ImageStream, MagickFormat.Bmp);
             }
             return true;
         }

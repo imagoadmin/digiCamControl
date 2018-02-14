@@ -47,33 +47,29 @@ namespace Capture.Workflow.Core.Classes
             RangeMax = 0;
         }
 
-        private int ToInt()
-        {
-            int val = 0;
-            int.TryParse(Value,  out val);
-            return val;
-        }
-
         public int ToInt(Context context)
         {
             int val = 0;
-            int.TryParse(ToString(context), out val);
+            var strVal = ToString(context);
+            if (IsPercentage(context))
+                strVal = strVal.Replace("%", "");
+            int.TryParse(strVal, out val);
             return val;
+        }
+
+        public bool IsPercentage(Context context)
+        {
+            return ToString(context).Trim().EndsWith("%");
         }
 
         public string ToString(Context context)
         {
+            if (context?.WorkFlow == null)
+                return "";
             if (string.IsNullOrWhiteSpace(Value))
                 return Value;
             Smart.Default.Settings.ConvertCharacterStringLiterals = false;
             return Smart.Format(Value, context.WorkFlow.Variables.GetAsDictionary()); 
-        }
-
-        private bool ToBool()
-        {
-            bool val;
-            bool.TryParse(Value, out val);
-            return val;
         }
 
         public bool ToBool(Context context)
@@ -86,6 +82,7 @@ namespace Capture.Workflow.Core.Classes
         public void InitVaribleList()
         {
             ValueList = WorkflowManager.Instance.Context.WorkFlow.Variables.Items.Select(x => x.Name).ToList();
+            ValueList.Insert(0, "");
         }
 
         public void InitViewList()

@@ -17,5 +17,21 @@
         public const string VariableChanged = "VariableChanged";
         public const string PreviousView = "PreviousView";
         public const string ThumbUpdated = "ThumbUpdated";
+        public const string NextPhoto = "NextPhoto";
+        public const string PrevPhoto = "PrevPhoto";
+        public const string DeletePhoto = "DeletePhoto";
+        public const string ShowHelp = "ShowHelp";
+        /// <summary>
+        /// The save all variables from current workflow
+        /// </summary>
+        public const string SaveVariables = "SaveVariables";
+        /// <summary>
+        /// Remove all phots from list
+        /// </summary>
+        public const string ClearPhotos = "ClearPhotos";
+
+        public const string IsBusy = "IsBusy";
+        public const string IsNotBusy = "IsNotBusy";
+
     }
 }

@@ -8,10 +8,10 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using AForge;
-using AForge.Imaging;
-using AForge.Imaging.Filters;
-using AForge.Vision.Motion;
+using Accord;
+using Accord.Imaging;
+using Accord.Imaging.Filters;
+using Accord.Vision.Motion;
 using CameraControl.Classes;
 using CameraControl.Core;
 using CameraControl.Core.Classes;
@@ -1542,8 +1542,15 @@ namespace CameraControl.ViewModel
 
         void FullScreenWnd_Closed(object sender, EventArgs e)
         {
-            FullScreenWnd.Closed -= FullScreenWnd_Closed;
-            _window.Show();
+            try
+            {
+                FullScreenWnd.Closed -= FullScreenWnd_Closed;
+                _window.Show();
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("Unable to show main live view window", ex);
+            }
         }
 
 
@@ -2471,18 +2478,26 @@ namespace CameraControl.ViewModel
 
         private void RecordMovie()
         {
-            string resp = Recording ? "" : CameraDevice.GetProhibitionCondition(OperationEnum.RecordMovie);
-            if (string.IsNullOrEmpty(resp))
+            try
             {
-                _recordLength = 0;
-                var thread = new Thread(RecordMovieThread);
-                thread.Start();
+                string resp = Recording ? "" : CameraDevice.GetProhibitionCondition(OperationEnum.RecordMovie);
+                if (string.IsNullOrEmpty(resp))
+                {
+                    _recordLength = 0;
+                    var thread = new Thread(RecordMovieThread);
+                    thread.Start();
+                }
+                else
+                {
+                    ServiceProvider.WindowsManager.ExecuteCommand(WindowsCmdConsts.LiveViewWnd_Message,
+                        TranslationStrings.LabelErrorRecordMovie + "\n" +
+                        TranslationManager.GetTranslation(resp));
+                }
             }
-            else
+            catch (Exception e)
             {
-                ServiceProvider.WindowsManager.ExecuteCommand(WindowsCmdConsts.LiveViewWnd_Message,
-                    TranslationStrings.LabelErrorRecordMovie + "\n" +
-                    TranslationManager.GetTranslation(resp));
+                Log.Debug("Start movie record error", e);
+                StaticHelper.Instance.SystemMessage = "Start movie record error " + e.Message;
             }
         }
 

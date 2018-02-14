@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Net.Mail;
 using System.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -124,6 +125,27 @@ namespace Capture.Workflow.Core.Classes
             return smoothedValues;
         }
 
+
+        /// <summary>
+        /// Delete the file
+        /// Error safe will not throw any exception  
+        /// </summary>
+        /// <param name="file">Full path of the file name</param>
+        public static void DeleteFile(string file)
+        {
+            try
+            {
+                if (!File.Exists(file))
+                    return;
+                WaitForFile(file);
+                File.Delete(file);
+            }
+            catch (Exception e)
+            {
+                Log.Error("Unable to delete file "+file,e);
+            }
+        }
+
         public static void WaitForFile(string file)
         {
             if (!File.Exists(file))
@@ -158,6 +180,27 @@ namespace Capture.Workflow.Core.Classes
             return false;
         }
 
+        public static void CopyFiles(string source, string dest)
+        {
+            if (!Directory.Exists(source))
+                return;
+
+            var files = Directory.GetFiles(source);
+            if (!Directory.Exists(dest))
+                Directory.CreateDirectory(dest);
+
+            foreach (string file in files)
+            {
+                var newFile = Path.Combine(dest, Path.GetFileName(file));
+                if (!File.Exists(newFile))
+                    File.Copy(file, newFile);
+            }
+        }
+
+        /// <summary>
+        /// Creates the folder for the specified filename
+        /// </summary>
+        /// <param name="filename">The filename.</param>
         public static void CreateFolder(string filename)
         {
             var folder = Path.GetDirectoryName(filename);
@@ -230,5 +273,30 @@ namespace Capture.Workflow.Core.Classes
             }
             return exists;
         }
+
+        public static void SendEmail(string body, string subject, string from, string to, string file = null)
+        {
+            using (SmtpClient mailClient = new SmtpClient("smtp.sendgrid.net", 587))
+            {
+                // Set the network credentials.
+                mailClient.Credentials = new NetworkCredential(CameraControl.Private.Ids.SendgridUser, CameraControl.Private.Ids.SendgridPass);
+
+                //Enable SSL.
+                //mailClient.EnableSsl = true;
+
+                var message = new MailMessage(from, to)
+                {
+                    Subject = subject,
+                    Body = body ?? "",
+                    IsBodyHtml = false
+                };
+                if (File.Exists(file))
+                    message.Attachments.Add(new Attachment(file));
+
+                mailClient.Send(message);
+                message.Dispose();
+            }
+        }
+
     }
 }

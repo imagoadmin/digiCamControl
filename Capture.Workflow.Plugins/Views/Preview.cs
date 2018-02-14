@@ -23,8 +23,19 @@ namespace Capture.Workflow.Plugins.Views
             WorkFlowView view = new WorkFlowView();
             view.Properties.Items.Add(new CustomProperty()
             {
+                Name = "(Name)",
+                PropertyType = CustomPropertyType.String
+            });
+            view.Properties.Items.Add(new CustomProperty()
+            {
                 Name = "ViewTitle",
                 PropertyType = CustomPropertyType.String
+            });
+            view.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "FileListVisible",
+                PropertyType = CustomPropertyType.Bool,
+                Value = "True"
             });
             view.Events.Add(new CommandCollection("Load"));
             view.Events.Add(new CommandCollection("UnLoad"));
@@ -61,6 +72,8 @@ namespace Capture.Workflow.Plugins.Views
             }
             model.View = view;
             var res = new PreviewView();
+            model.FileListVisible = view.Properties["FileListVisible"].ToBool(context);
+            model.Preview = true;
             res.DataContext = model;
             WorkflowManager.ExecuteAsync(view.GetEventCommands("Load"), WorkflowManager.Instance.Context);
             return res;

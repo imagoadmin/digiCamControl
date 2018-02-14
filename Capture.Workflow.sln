@@ -1,11 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CameraControl.Devices", "CameraControl.Devices\CameraControl.Devices.csproj", "{E8572D8B-C987-4D20-BD88-1F8925A64A82}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CameraControl.Core", "CameraControl.Core\CameraControl.Core.csproj", "{741A8DDA-4604-4CF4-8DAA-1F98A2767896}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Capture.Workflow", "Capture.Workflow\Capture.Workflow.csproj", "{5272066F-D868-423D-AF40-7B21B00C88BA}"
 EndProject
@@ -16,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PortableDeviceLib", "PortableDeviceLib\PortableDeviceLib.csproj", "{E9F048C1-C6A0-4CCD-BE57-4E76A7F8B32D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Canon.Eos.Framework", "Canon.Eos.Framework\Canon.Eos.Framework.csproj", "{F809DBB6-E0E8-47A8-92ED-C24575576A5D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Capture.Workflow.Setup", "Capture.Workflow.Setup\Capture.Workflow.Setup.csproj", "{44555887-C439-470C-944D-8866EC3D7067}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -48,24 +48,6 @@ Global
 		{E8572D8B-C987-4D20-BD88-1F8925A64A82}.Release|x64.Build.0 = Release|x64
 		{E8572D8B-C987-4D20-BD88-1F8925A64A82}.Release|x86.ActiveCfg = Release|x86
 		{E8572D8B-C987-4D20-BD88-1F8925A64A82}.Release|x86.Build.0 = Release|x86
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Capture.Workflow|Any CPU.ActiveCfg = Capture.Workflow|Any CPU
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Capture.Workflow|Any CPU.Build.0 = Capture.Workflow|Any CPU
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Capture.Workflow|x64.ActiveCfg = Capture.Workflow|x64
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Capture.Workflow|x64.Build.0 = Capture.Workflow|x64
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Capture.Workflow|x86.ActiveCfg = Capture.Workflow|x86
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Capture.Workflow|x86.Build.0 = Capture.Workflow|x86
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Debug|x64.ActiveCfg = Debug|x64
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Debug|x64.Build.0 = Debug|x64
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Debug|x86.ActiveCfg = Debug|x86
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Debug|x86.Build.0 = Debug|x86
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Release|Any CPU.Build.0 = Release|Any CPU
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Release|x64.ActiveCfg = Release|x64
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Release|x64.Build.0 = Release|x64
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Release|x86.ActiveCfg = Release|x86
-		{741A8DDA-4604-4CF4-8DAA-1F98A2767896}.Release|x86.Build.0 = Release|x86
 		{5272066F-D868-423D-AF40-7B21B00C88BA}.Capture.Workflow|Any CPU.ActiveCfg = Capture.Workflow|Any CPU
 		{5272066F-D868-423D-AF40-7B21B00C88BA}.Capture.Workflow|Any CPU.Build.0 = Capture.Workflow|Any CPU
 		{5272066F-D868-423D-AF40-7B21B00C88BA}.Capture.Workflow|x64.ActiveCfg = Capture.Workflow|Any CPU
@@ -156,6 +138,24 @@ Global
 		{F809DBB6-E0E8-47A8-92ED-C24575576A5D}.Release|x64.Build.0 = Release|x64
 		{F809DBB6-E0E8-47A8-92ED-C24575576A5D}.Release|x86.ActiveCfg = Release|x86
 		{F809DBB6-E0E8-47A8-92ED-C24575576A5D}.Release|x86.Build.0 = Release|x86
+		{44555887-C439-470C-944D-8866EC3D7067}.Capture.Workflow|Any CPU.ActiveCfg = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Capture.Workflow|Any CPU.Build.0 = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Capture.Workflow|x64.ActiveCfg = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Capture.Workflow|x64.Build.0 = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Capture.Workflow|x86.ActiveCfg = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Capture.Workflow|x86.Build.0 = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Debug|x64.Build.0 = Debug|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Debug|x86.Build.0 = Debug|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Release|x64.ActiveCfg = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Release|x64.Build.0 = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Release|x86.ActiveCfg = Release|Any CPU
+		{44555887-C439-470C-944D-8866EC3D7067}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

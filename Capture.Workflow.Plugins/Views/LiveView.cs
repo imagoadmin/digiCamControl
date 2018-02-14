@@ -24,8 +24,31 @@ namespace Capture.Workflow.Plugins.Views
             WorkFlowView view = new WorkFlowView();
             view.Properties.Items.Add(new CustomProperty()
             {
+                Name = "(Name)",
+                PropertyType = CustomPropertyType.String
+            });
+            view.Properties.Items.Add(new CustomProperty()
+            {
                 Name = "ViewTitle",
                 PropertyType = CustomPropertyType.String
+            });
+            view.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "FileListVisible",
+                PropertyType = CustomPropertyType.Bool,
+                Value = "True"
+            });
+            view.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "NoPreview",
+                PropertyType = CustomPropertyType.Bool,
+                Value = "False"
+            });
+            view.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "ShowFocusArea",
+                PropertyType = CustomPropertyType.Bool,
+                Value = "True"
             });
             view.Events.Add(new CommandCollection("Load"));
             view.Events.Add(new CommandCollection("UnLoad"));
@@ -34,7 +57,7 @@ namespace Capture.Workflow.Plugins.Views
 
         public override List<string> GetPositions()
         {
-            return new List<string> { "Left", "BottomLeft", "BottomRight", "Background" };
+            return new List<string> { "Left", "BottomLeft", "BottomRight", "Background", "PreviewRight" };
         }
 
 
@@ -58,9 +81,16 @@ namespace Capture.Workflow.Plugins.Views
                     case "Background":
                         model.BackGroundElements.Add(element.Instance.GetControl(element,context));
                         break;
+                    case "PreviewRight":
+                        model.PreviewRight.Add(element.Instance.GetControl(element, context));
+                        break;
                 }
             }
             model.View = view;
+            model.FileListVisible = view.Properties["FileListVisible"].ToBool(context);
+            model.ShowFocusArea = view.Properties["ShowFocusArea"].ToBool(context);
+
+            model.Preview = !view.Properties["NoPreview"].ToBool(context);
             var res = new LiveViewUI();
             res.DataContext = model;
             WorkflowManager.ExecuteAsync(view.GetEventCommands("Load"), WorkflowManager.Instance.Context);

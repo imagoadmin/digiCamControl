@@ -35,6 +35,7 @@ namespace Capture.Workflow.Plugins.Events
         {
             if (e.Name == Messages.SessionFinished)
             {
+                WorkflowManager.Instance.OnMessage(new MessageEventArgs(Messages.IsBusy, null));
                 var contex = e.Param as Context;
                 if (contex != null)
                 {
@@ -50,17 +51,20 @@ namespace Capture.Workflow.Plugins.Events
                         itemContex.FileItem = item;
                         itemContex.Target = ContextTargetEnum.FileItem;
                         itemContex.FileItem = item;
-                        var bitmap = Utils.LoadImage(WorkflowManager.Instance.SelectedItem.TempFile);
-                        using (MemoryStream stream = new MemoryStream())
+                        //Load item specific variable values
+                        foreach (var variable in item.Variables.Items)
                         {
-                            Utils.Save2Jpg(bitmap, stream);
-                            itemContex.ImageStream = stream;
-                            WorkflowManager.Execute(_flowEvent.CommandCollection, itemContex);
-                            stream.Seek(0, SeekOrigin.Begin);
+                            var varItem = itemContex.WorkFlow.Variables[variable.Name];
+                            if (varItem != null)
+                            {
+                                varItem.AttachedVariable = variable;
+                            }
                         }
-                        
+                        WorkflowManager.Instance.Context = itemContex;
+                        WorkflowManager.Execute(_flowEvent.CommandCollection, itemContex);
                     }
                 }
+                WorkflowManager.Instance.OnMessage(new MessageEventArgs(Messages.IsNotBusy, null));
             }
         }
 

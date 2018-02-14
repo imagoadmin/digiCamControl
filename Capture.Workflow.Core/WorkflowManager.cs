@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using System.Web.UI;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -15,6 +14,7 @@ using CameraControl.Devices;
 using CameraControl.Devices.Classes;
 using Capture.Workflow.Core.Classes;
 using Capture.Workflow.Core.Classes.Attributes;
+using Capture.Workflow.Core.Database;
 using Capture.Workflow.Core.Interface;
 using GalaSoft.MvvmLight;
 using Ionic.Zip;
@@ -41,9 +41,12 @@ namespace Capture.Workflow.Core
 
         private bool _thumbRunning = false;
         private bool _thumbNext = false;
+        private object _lock = new object();
+
 
         private static WorkflowManager _instance;
         private BitmapSource _bitmap;
+        private FileItem _selectedItem;
 
         public static WorkflowManager Instance
         {
@@ -57,7 +60,7 @@ namespace Capture.Workflow.Core
         }
 
         public Context Context { get; set; }
-
+        public SqliteDatabase Database { get; set; }
 
         public static void ExecuteAsync(CommandCollection collection, Context context)
         {
@@ -66,19 +69,24 @@ namespace Capture.Workflow.Core
 
         public static void Execute(CommandCollection collection, Context context)
         {
+            var currCmd = "";
             try
             {
                 foreach (var command in collection.Items)
                 {
+                    currCmd = command.Name;
+                    Log.Debug("Executing command " + currCmd);
                     if (!command.Instance.Execute(command, context))
                         return;
                 }
             }
             catch (Exception ex)
             {
-                Log.Debug("Command execution error", ex);
+                Log.Debug("Command execution error "+currCmd, ex);
             }
         }
+
+        public int PreviewSize { get; set; }
 
         public FileItem FileItem { get; set; }
 
@@ -86,7 +94,25 @@ namespace Capture.Workflow.Core
 
         public List<PluginInfo> Plugins { get; set; }
 
-        public FileItem SelectedItem { get; set; }
+        public FileItem SelectedItem
+        {
+            get { return _selectedItem; }
+            set
+            {
+                _selectedItem = value;
+                if (_selectedItem != null)
+                {
+                    foreach (var variable in _selectedItem.Variables.Items)
+                    {
+                        var item = Context.WorkFlow.Variables[variable.Name];
+                        if (item != null)
+                        {
+                            item.AttachedVariable = variable;
+                        }
+                    }
+                }
+            }
+        }
 
         public BitmapSource Bitmap
         {
@@ -106,30 +132,84 @@ namespace Capture.Workflow.Core
             // live view stuff for nikon
             _liveViewTimer.Interval = TimeSpan.FromMilliseconds(20);
             _liveViewTimer.Tick += _liveViewTimer_Tick;
+            ServiceProvider.Instance.DeviceManager.CameraConnected += DeviceManager_CameraConnected;
             ServiceProvider.Instance.DeviceManager.PhotoCaptured += DeviceManager_PhotoCaptured;
             FileItems = new AsyncObservableCollection<FileItem>();
+            FileItems.CollectionChanged += FileItems_CollectionChanged;
+            ConfigureDatabase();
+            QueueManager.Instance.Start();
         }
+
+        private void FileItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            Context?.WorkFlow?.Variables.SetValue("CapturedFilesCount", FileItems.Count.ToString());
+        }
+
+        private void DeviceManager_CameraConnected(ICameraDevice cameraDevice)
+        {
+            if (Context != null)
+                Context.CameraDevice = cameraDevice;
+        }
+
+        public void ConfigureDatabase()
+        {
+            try
+            {
+                //Database = new Database.Database(Path.Combine(Settings.DataFolder, "database.db"));
+                Database = new SqliteDatabase(Path.Combine(Settings.DataPath, "database.db"));
+            }
+            catch (DllNotFoundException ex)
+            {
+                Log.Error(
+                    $"Error(ignored): Database at {Path.Combine(Settings.DataPath, "database.db")}: {ex.Message}",
+                    null);
+            }
+            catch (SQLite.SQLiteException exception)
+            {
+                Log.Error("Unable to open database ", exception);
+                try
+                {
+                    File.Delete(Path.Combine(Settings.DataPath, "database.db"));
+                    Database = new SqliteDatabase(Path.Combine(Settings.DataPath, "database.db"));
+                }
+                catch (Exception e)
+                {
+                    Log.Error("Unable to create database ", e);
+                }
+            }
+            catch (Exception exception)
+            {
+                Log.Error("Unable to create database ", exception);
+            }
+        }
+
 
         public BitmapSource GetLargeThumbnail(FileItem item)
         {
             if (item != null)
             {
-                try
+                lock (_lock)
                 {
-                    var bitmap = Utils.LoadImage(WorkflowManager.Instance.SelectedItem.TempFile, 1090, 0);
-                    using (MemoryStream stream = new MemoryStream())
+                    try
                     {
-                        Utils.Save2Jpg(bitmap, stream);
-                        Context.FileItem = item;
-                        Context.ImageStream = stream;
-                        OnMessage(new MessageEventArgs(Messages.ThumbChanged, FileItem) {Context = Context});
-                        stream.Seek(0, SeekOrigin.Begin);
-                        return Utils.LoadImage(stream);
+                        var bitmap = Utils.LoadImage(WorkflowManager.Instance.SelectedItem.TempFile, PreviewSize, 0);
+                        using (MemoryStream stream = new MemoryStream())
+                        {
+                            Utils.Save2Jpg(bitmap, stream);
+                            Context.FileItem = item;
+                            Context.ImageStream = stream;
+                            OnMessage(new MessageEventArgs(Messages.ThumbChanged, FileItem) {Context = Context});
+                            stream.Seek(0, SeekOrigin.Begin);
+                            item.Thumb = Utils.LoadImage(stream, 200);
+                            stream.Seek(0, SeekOrigin.Begin);
+                            return Utils.LoadImage(stream);
+                        }
                     }
-                }
-                catch (Exception e)
-                {
-                    Log.Debug("Unable to create thumbnail", e);
+                    catch (Exception e)
+                    {
+                        Log.Debug("Unable to create thumbnail", e);
+                    }
+                    Context.ImageStream = null;
                 }
             }
             return null;
@@ -139,7 +219,16 @@ namespace Capture.Workflow.Core
         {
             try
             {
-                string tempFile = Path.Combine(Settings.Instance.TempFolder, Path.GetRandomFileName() + Path.GetExtension(eventArgs.FileName));
+                // if no workflow loaded do nothing 
+                if (Context?.WorkFlow == null)
+                    return;
+
+                string tempFile = Path.Combine(Settings.Instance.TempFolder,
+                    Path.GetRandomFileName() + Path.GetExtension(eventArgs.FileName));
+
+                // set in varieable the captured file original name
+                Context?.WorkFlow?.Variables.SetValue("CapturedFileName",
+                    Path.GetFileNameWithoutExtension(eventArgs.FileName));
 
                 Utils.CreateFolder(tempFile);
 
@@ -147,22 +236,32 @@ namespace Capture.Workflow.Core
                     File.Delete(tempFile);
 
                 eventArgs.CameraDevice.TransferFile(eventArgs.Handle, tempFile);
-                FileItem item = new FileItem() { TempFile = tempFile, Thumb = Utils.LoadImage(tempFile, 200, 0) };
+                eventArgs.CameraDevice.ReleaseResurce(eventArgs);
+
+                if (!Context.CaptureEnabled)
+                {
+                    // files should be transferred anyway if capture is enabled or not
+                    // to prevent camera buffer fill up 
+                    Utils.DeleteFile(tempFile);
+                    Log.Debug("File transfer disabled");
+                    return;
+                }
+
+                FileItem item = new FileItem()
+                {
+                    TempFile = tempFile,
+                    Thumb = Utils.LoadImage(tempFile, 200),
+                    Variables = Context.WorkFlow.Variables.GetItemVariables()
+                };
+                Bitmap = Utils.LoadImage(tempFile, 1090);
                 FileItems.Add(item);
                 FileItem = item;
-                //item.ThumbFile = Path.GetTempFileName();
                 Context.FileItem = FileItem;
 
-                //Utils.Save2Jpg(Utils.LoadImage(tempFile, 800, 0), item.ThumbFile);
-                var bitmap = Utils.LoadImage(tempFile);
-                using (MemoryStream stream = new MemoryStream())
-                {
-                    Utils.Save2Jpg(bitmap, stream);
-                    Context.FileItem = item;
-                    Context.ImageStream = stream;
-                    OnMessage(new MessageEventArgs(Messages.FileTransferred, Context) { Context = Context });
-                    OnMessage(new MessageEventArgs(Messages.PhotoDownloaded, FileItem) { Context = Context });
-                }
+                Utils.WaitForFile(tempFile);
+                Context.FileItem = item;
+                OnMessage(new MessageEventArgs(Messages.PhotoDownloaded, FileItem) {Context = Context});
+                OnMessage(new MessageEventArgs(Messages.FileTransferred, Context) {Context = Context});
             }
             catch (Exception ex)
             {
@@ -183,20 +282,15 @@ namespace Capture.Workflow.Core
                 var liveViewData = Context.CameraDevice.GetLiveViewImage();
                 if (liveViewData?.ImageData != null)
                 {
-                    using (
-                        MemoryStream stream = new MemoryStream(liveViewData.ImageData, liveViewData.ImageDataPosition,
-                            liveViewData.ImageData.Length - liveViewData.ImageDataPosition))
+                    using (MemoryStream stream = new MemoryStream())
                     {
-                        Stopwatch stopwatch = new Stopwatch();
-                        stopwatch.Start();
+                        // can be used in MemoryStream constructor because throw error with image magick 
+                        stream.Write(liveViewData.ImageData, liveViewData.ImageDataPosition, liveViewData.ImageData.Length - liveViewData.ImageDataPosition);
                         Context.ImageStream = stream;
-                        OnMessage(new MessageEventArgs(Messages.LiveViewChanged, new object[] {stream, liveViewData}) {Context = Context});
-                        stopwatch.Stop();
-                        Console.WriteLine(stopwatch.ElapsedMilliseconds);
+                        OnMessage(new MessageEventArgs(Messages.LiveViewChanged, new object[] { stream, liveViewData }) { Context = Context });
                         _frames++;
                         var fps = ((double)_frames / (DateTime.Now - _startTime).Seconds);
-                        Console.WriteLine("FPS :" + (_frames / (DateTime.Now - _startTime).Seconds));
-                        Context.WorkFlow.Variables.SetValue("Fps", fps.ToString("###.00"));
+                        Context?.WorkFlow?.Variables.SetValue("Fps", fps.ToString("###.00"));
                     }
                 }
             }
@@ -215,7 +309,8 @@ namespace Capture.Workflow.Core
                 if (plugin.Type==type)
                     res.Add(plugin);
             }
-            return res;
+
+            return res.OrderBy(x => x.Name).ToList();
         }
 
 
@@ -235,22 +330,28 @@ namespace Capture.Workflow.Core
                     var attribute = exportedType.GetCustomAttribute<PluginTypeAttribute>();
                     var attributeDes = exportedType.GetCustomAttribute<DescriptionAttribute>();
                     var attributeName = exportedType.GetCustomAttribute<DisplayNameAttribute>();
-                    
+                    var attributeIcon = exportedType.GetCustomAttribute<IconAttribute>();
+
                     if (attribute != null)
                     {
-                        Plugins.Add(new PluginInfo()
+                        var plugin=new PluginInfo()
                         {
                             Type = attribute.PluginType,
                             Class = exportedType.AssemblyQualifiedName,
                             Description = attributeDes?.Description,
-                            Name = attributeName?.DisplayName
-                        });
+                            Name = attributeName?.DisplayName,
+                            Icon = attributeIcon?.Icon
+                        };
+                        Log.Debug("Loading plugin " + plugin.Type.ToString().PadRight(15) + "=>" +
+                                  plugin.Name.PadRight(25) + "=>" + plugin.Class);
+
+                        Plugins.Add(plugin);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Unable to load plugins");
+                Log.Error("Unable to load plugins", ex);
             }
         }
 
@@ -295,6 +396,13 @@ namespace Capture.Workflow.Core
                                 files.Add(property.Value, "");
                             }
                     }
+                    foreach (var viewProperty in workflow.Properties.Items.Where(
+                        x => x.PropertyType == CustomPropertyType.File))
+                    {
+                        if (File.Exists(viewProperty.Value) && !files.ContainsKey(viewProperty.Value))
+                            files.Add(viewProperty.Value, "");
+
+                    }
                     zip.AddEntry("package.xml", writer.ToArray());
                     foreach (var file1 in files)
                     {
@@ -325,7 +433,7 @@ namespace Capture.Workflow.Core
         {
             if (File.Exists(fileName))
             {
-                using (FileStream myFileStream = new FileStream(fileName, FileMode.Open))
+                using (FileStream myFileStream = new FileStream(fileName, FileMode.Open,FileAccess.Read,FileShare.Read))
                 {
                     return Load(myFileStream);
                 }
@@ -362,12 +470,15 @@ namespace Capture.Workflow.Core
             foreach (var flowEvent in flow.Events)
             {
                 IEventPlugin plugin = Instance.GetEventPlugin(flowEvent.PluginInfo.Class);
+
                 WorkFlowEvent event_ = plugin.CreateEvent();
                 event_.Parent = resflow;
                 event_.Instance = plugin;
                 event_.PluginInfo = flowEvent.PluginInfo;
                 event_.Name = flowEvent.Name;
                 event_.Properties.CopyValuesFrom(flowEvent.Properties);
+                LoadPluginInfo(event_.PluginInfo);
+
                 foreach (var flowCommand in flowEvent.CommandCollection.Items)
                 {
                     IWorkflowCommand commandPlugin = Instance.GetCommandPlugin(flowCommand.PluginInfo.Class);
@@ -377,6 +488,7 @@ namespace Capture.Workflow.Core
                     wCommand.Name = flowCommand.Name;
                     wCommand.Properties.CopyValuesFrom(flowCommand.Properties);
                     event_.CommandCollection.Items.Add(wCommand);
+                    LoadPluginInfo(flowCommand.PluginInfo);
                 }
                 resflow.Events.Add(event_);
             }
@@ -390,6 +502,7 @@ namespace Capture.Workflow.Core
                 view.PluginInfo = _view.PluginInfo;
                 view.Name = _view.Name;
                 view.Properties.CopyValuesFrom(_view.Properties);
+                LoadPluginInfo(view.PluginInfo);
                 foreach (var viewElement in _view.Elements)
                 {
                     IViewElementPlugin elementplugin = Instance.GetElementPlugin(viewElement.PluginInfo.Class);
@@ -400,6 +513,7 @@ namespace Capture.Workflow.Core
                     element.Name = viewElement.Name;
                     element.Properties.CopyValuesFrom(viewElement.Properties);
                     view.Elements.Add(element);
+                    LoadPluginInfo(element.PluginInfo);
                     foreach (var commandCollection in element.Events)
                     {
                         CommandCollection loadedcommand = null;
@@ -420,6 +534,7 @@ namespace Capture.Workflow.Core
                                 wCommand.Name = flowCommand.Name;
                                 wCommand.Properties.CopyValuesFrom(flowCommand.Properties);
                                 commandCollection.Items.Add(wCommand);
+                                LoadPluginInfo(wCommand.PluginInfo);
                             }
                         }
                     }
@@ -443,6 +558,7 @@ namespace Capture.Workflow.Core
                             wCommand.Name = flowCommand.Name;
                             wCommand.Properties.CopyValuesFrom(flowCommand.Properties);
                             commandCollection.Items.Add(wCommand);
+                            LoadPluginInfo(wCommand.PluginInfo);
                         }
                     }
                 }
@@ -452,31 +568,84 @@ namespace Capture.Workflow.Core
             return resflow;
         }
 
+        public void LoadPluginInfo(PluginInfo info)
+        {
+            var item= Plugins.FirstOrDefault(x => x.Name == info.Name);
+            if (item != null)
+            {
+                info.Icon = item.Icon;
+                info.Description = item.Description;
+            }
+        }
+
         public IViewPlugin GetViewPlugin(string className)
         {
-            return (IViewPlugin) Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            try
+            {
+                return (IViewPlugin)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            }
+            catch (Exception e)
+            {
+                Log.Error("Unable to load view plugin" + className, e);
+                throw;
+            }
+
         }
 
         public IViewElementPlugin GetElementPlugin(string className)
         {
-            return (IViewElementPlugin)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            try
+            {
+                return (IViewElementPlugin)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            }
+            catch (Exception e)
+            {
+                Log.Error("Unable to load element plugin" + className, e);
+                throw;
+            }
+
         }
 
         public IEventPlugin GetEventPlugin(string className)
         {
-            return (IEventPlugin)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            try
+            {
+                Log.Debug("Load event plugin " + className);
+                var plugin = Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+                return (IEventPlugin)plugin;
+            }
+            catch (Exception e)
+            {
+                Log.Error("Unable to load event plugin" + className,e);
+                throw;
+            }
         }
 
         public IWorkflowCommand GetCommandPlugin(string className)
         {
-            return (IWorkflowCommand)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            try
+            {
+                return (IWorkflowCommand)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
+            }
+            catch (Exception e)
+            {
+                Log.Error("Unable to load command plugin" + className, e);
+                throw;
+            }
+
+        }
+
+        public IWorkflowQueueCommand GetQueueCommandPlugin(string pluginName)
+        {
+            var className = Plugins.Where(x => x.Name == pluginName).Select(x => x.Class).FirstOrDefault();
+            return (IWorkflowQueueCommand)Activator.CreateInstance(Type.GetType(className, AssemblyResolver, null));
         }
 
         public WorkFlow CreateWorkFlow()
         {
             WorkFlow resflow = new WorkFlow();
-            resflow.Variables.Items.Add(new Variable() {Name = "SessionFolder", Editable = false});
-            resflow.Variables.Items.Add(new Variable() {Name = "FileNameTemplate", Editable = false});
+            resflow.Variables.Items.Add(new Variable() {Name = "SessionFolder", Editable = true});
+            //resflow.Variables.Items.Add(new Variable() {Name = "FileNameTemplate", Editable = false});
             return resflow;
         }
 
@@ -502,12 +671,63 @@ namespace Capture.Workflow.Core
                 case Messages.ShowMessage:
                     MessageBox.Show(e.Param.ToString());
                     break;
+                case Messages.SaveVariables:
                 case Messages.SessionFinished:
                     SaveVariables(e.Context.WorkFlow);
                     break;
                 case Messages.ThumbCreate:
                     UpdateThumbAsync();
                     break;
+                case Messages.NextPhoto:
+                    if (SelectedItem != null)
+                    {
+                        var i = FileItems.IndexOf(SelectedItem);
+                        i++;
+                        if (i < FileItems.Count)
+                        {
+                            SelectedItem = FileItems[i];
+                        }
+                    }
+                    UpdateThumbAsync();
+                    break;
+                case Messages.PrevPhoto:
+                    if (SelectedItem != null)
+                    {
+                        var i = FileItems.IndexOf(SelectedItem);
+                        i--;
+                        if (i > -1)
+                        {
+                            SelectedItem = FileItems[i];
+                        }
+                    }
+                    UpdateThumbAsync();
+                    break;
+                case Messages.DeletePhoto:
+                {
+                    if (SelectedItem == null || FileItems.Count == 0)
+                        return;
+                    var i = FileItems.IndexOf(SelectedItem);
+                    SelectedItem.Clear();
+                    FileItems.Remove(SelectedItem);
+                    
+                    if (i >= FileItems.Count)
+                        i--;
+                    if (i >= 0 && FileItems.Count > 0)
+                        SelectedItem = FileItems[i];
+                    UpdateThumbAsync();
+                }
+                    break;
+                case Messages.ClearPhotos:
+                {
+                    foreach (var item in FileItems)
+                    {
+                        item.Clear();
+                    }
+                    FileItems.Clear();
+                    SelectedItem = null;
+                    UpdateThumbAsync();
+                    break;
+                }
             }
             Message?.Invoke(this, e);
         }
@@ -525,20 +745,23 @@ namespace Capture.Workflow.Core
 
         private void UpdateThumb()
         {
-            _thumbRunning = true;
-            Bitmap = GetLargeThumbnail(SelectedItem);
-            OnMessage(new MessageEventArgs(Messages.ThumbUpdated, null));
-            _thumbRunning = false;
-            if (_thumbNext)
+            lock (_lock)
             {
-                _thumbNext = false;
-                UpdateThumbAsync();
+                _thumbRunning = true;
+                Bitmap = GetLargeThumbnail(SelectedItem);
+                OnMessage(new MessageEventArgs(Messages.ThumbUpdated, null));
+                _thumbRunning = false;
+                if (_thumbNext)
+                {
+                    _thumbNext = false;
+                    UpdateThumbAsync();
+                }
             }
         }
 
         public void SaveVariables(WorkFlow workflow)
         {
-            string file = Path.Combine(Settings.Instance.CacheFolder, workflow.Id + "xml");
+            string file = Path.Combine(Settings.Instance.CacheFolder, workflow.Id + ".xml");
             try
             {
                 XmlSerializer serializer = new XmlSerializer(typeof(VariableCollection));
@@ -555,11 +778,23 @@ namespace Capture.Workflow.Core
             }
         }
 
+        /// <summary>
+        /// Reinit all variable values with default one and
+        /// load the saved variables value from cache.
+        /// </summary>
+        /// <param name="workflow">The workflow.</param>
         public void LoadVariables(WorkFlow workflow)
         {
             try
             {
-                string file = Path.Combine(Settings.Instance.CacheFolder, workflow.Id + "xml");
+                // set for all variables the default value,
+                // which will be overwrited or not later 
+                foreach (var variable in workflow.Variables.Items)
+                {
+                    variable.Value = variable.DefaultValue;
+                }
+
+                string file = Path.Combine(Settings.Instance.CacheFolder, workflow.Id + ".xml");
                 if (!File.Exists(file))
                     return;
 

@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media;
+using CameraControl.Devices;
 using Capture.Workflow.Core.Classes;
 using Capture.Workflow.Core.Classes.Attributes;
 using Capture.Workflow.Core.Interface;
@@ -26,6 +27,11 @@ namespace Capture.Workflow.Plugins.ViewElements
         public WorkFlowViewElement CreateElement(WorkFlowView view)
         {
             WorkFlowViewElement element = new WorkFlowViewElement();
+            element.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "(Name)",
+                PropertyType = CustomPropertyType.String
+            });
             element.Properties.Items.Add(new CustomProperty()
             {
                 Name = "Caption",
@@ -149,6 +155,8 @@ namespace Capture.Workflow.Plugins.ViewElements
                 FontSize = viewElement.Properties["FontSize"].ToInt(context),
                 VerticalContentAlignment = VerticalAlignment.Center,
             };
+            if (viewElement.Properties["Orientation"].ToString(context) == "Vertical")
+                label.HorizontalContentAlignment = HorizontalAlignment.Center;
 
             if (viewElement.Properties["LabelWidth"].ToInt(context) > 0)
                 label.Width = viewElement.Properties["LabelWidth"].ToInt(context);
@@ -168,16 +176,26 @@ namespace Capture.Workflow.Plugins.ViewElements
                 VerticalContentAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
+            if (viewElement.Properties["Orientation"].Value == "Vertical")
+                button.HorizontalAlignment = HorizontalAlignment.Stretch;
+
             button.Click += (sender, e) =>
             {
-                FolderBrowserDialog browserDialog = new FolderBrowserDialog();
-                if (viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].Value].Value != null)
-                    browserDialog.SelectedPath =
-                        viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].Value].Value;
-                if (browserDialog.ShowDialog() == DialogResult.OK)
+                try
                 {
-                    viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].Value].Value =
-                        browserDialog.SelectedPath;
+                    FolderBrowserDialog browserDialog = new FolderBrowserDialog();
+                    if (viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].Value].Value != null)
+                        browserDialog.SelectedPath =
+                            viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].Value].Value;
+                    if (browserDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].Value].Value =
+                            browserDialog.SelectedPath;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Unable to browse folder", ex);
                 }
             };
             var stackpanel = new StackPanel();

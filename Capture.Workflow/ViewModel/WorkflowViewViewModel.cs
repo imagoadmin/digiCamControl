@@ -2,9 +2,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using CameraControl.Devices;
+using Capture.Workflow.Classes;
 using Capture.Workflow.Core;
 using Capture.Workflow.Core.Classes;
-using Dragablz;
+using Capture.Workflow.View;
 using GalaSoft.MvvmLight;
 using MaterialDesignThemes.Wpf;
 
@@ -23,6 +24,8 @@ namespace Capture.Workflow.ViewModel
         private WindowState _windowState;
         private WindowStyle _windowStyle;
         private bool _fullScreen;
+        private string _displayName;
+        private bool _isBusy;
 
         public UserControl Contents
         {
@@ -54,6 +57,19 @@ namespace Capture.Workflow.ViewModel
             }
         }
 
+        public string DisplayName
+        {
+            get { return _displayName; }
+            set
+            {
+                _displayName = value;
+                RaisePropertyChanged(() => DisplayName);
+            }
+        }
+
+
+        public Context Context => WorkflowManager.Instance.Context;
+
         public ICameraDevice CameraDevice
         {
             get { return WorkflowManager.Instance.Context.CameraDevice; }
@@ -63,6 +79,8 @@ namespace Capture.Workflow.ViewModel
                 RaisePropertyChanged(() => CameraDevice);
             }
         }
+
+        public CameraDeviceManager DeviceManager => ServiceProvider.Instance.DeviceManager;
 
         public bool TitleBar
         {
@@ -105,8 +123,19 @@ namespace Capture.Workflow.ViewModel
             }
         }
 
-        public bool ShowTitleBar => !FullScreen;
+        public bool IsBusy
+        {
+            get { return _isBusy; }
+            set
+            {
+                _isBusy = value;
+                RaisePropertyChanged(() => IsBusy);
+            }
+        }
 
+
+        public bool ShowTitleBar => !FullScreen;
+        public QueueManager QueueManager => QueueManager.Instance;
 
 
         public WorkflowViewViewModel()
@@ -118,13 +147,17 @@ namespace Capture.Workflow.ViewModel
                 TitleBar = !Workflow.Properties["HideTileBar"].ToBool(context);
                 WindowStyle = Workflow.Properties["FullScreen"].ToBool(context) ? WindowStyle.None : WindowStyle.SingleBorderWindow;
                 FullScreen = Workflow.Properties["FullScreen"].ToBool(context);
+                WorkflowManager.Instance.PreviewSize = Workflow.Properties["PreviewSize"].ToInt(context);
                 WindowState = WindowState.Maximized;
-
+                DisplayName = Workflow.Name + " - " + Workflow.Version;
                 new PaletteHelper().SetLightDark(Workflow.Properties["BaseColorScheme"].Value == "Dark");
                 new PaletteHelper().ReplacePrimaryColor(Workflow.Properties["ColorScheme"].Value);
                 CameraDevice = ServiceProvider.Instance.DeviceManager.SelectedCameraDevice;
                 WorkflowManager.Instance.Message += Instance_Message;
                 ServiceProvider.Instance.DeviceManager.CameraConnected += DeviceManager_CameraConnected;
+
+                GoogleAnalytics.Instance.TrackEvent("Workflow", "Start", Workflow.Name);
+
                 foreach (WorkFlowEvent workflowEvent in Workflow.Events)
                 {
                     try
@@ -137,6 +170,10 @@ namespace Capture.Workflow.ViewModel
                     }
                 }
                 ShowView(Workflow.Views[0].Name);
+            }
+            else
+            {
+                TitleBar = true;
             }
         }
 
@@ -155,6 +192,35 @@ namespace Capture.Workflow.ViewModel
                 case Messages.PreviousView:
                     Application.Current.Dispatcher.BeginInvoke(new Action(() => ShowView(_preView)));
                     break;
+                case Messages.ShowHelp:
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() => ShowHelp((Context)e.Param)));
+                    break;
+                case Messages.IsBusy:
+                    IsBusy = true;
+                    break;
+                case Messages.IsNotBusy:
+                    IsBusy = false;
+                    break;
+            }
+        }
+
+        private void ShowHelp(Context context)
+        {
+            if (string.IsNullOrEmpty(context.WorkFlow.Properties["HelpFile"].ToString(context)))
+                return;
+            try
+            {
+                var stream = Workflow.GetFileStream(context.WorkFlow.Properties["HelpFile"].ToString(context));
+                if (stream != null)
+                {
+                    var view = new HelpView(stream);
+                    view.ShowDialog();
+                    stream.Close();
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error("Show help error", e);
             }
         }
 
@@ -162,7 +228,8 @@ namespace Capture.Workflow.ViewModel
         {
             if(string.IsNullOrWhiteSpace(viewName))
                 return;
-
+            Workflow.Variables.SetValue("CurrentView", viewName);
+            GoogleAnalytics.Instance.TrackScreenView(viewName);
             _preView = _currentView;
             _currentView = viewName;
             WorkFlowView view = Workflow.GetView(viewName);

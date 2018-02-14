@@ -1,14 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
+using System.Diagnostics;
+using System.IO;
 using System.Reflection;
-using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using CameraControl.Devices;
 using CameraControl.Devices.Classes;
+using Capture.Workflow.Classes;
 using Capture.Workflow.Core;
+using Capture.Workflow.Core.Classes;
 using log4net;
 using log4net.Appender;
 using log4net.Config;
@@ -25,12 +25,94 @@ namespace Capture.Workflow
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
+            Current.DispatcherUnhandledException += AppDispatcherUnhandledException;
+
+            string procName = Process.GetCurrentProcess().ProcessName;
+            // get the list of all processes by that name
+
+            Process[] processes = Process.GetProcessesByName(procName);
+
+            if (processes.Length > 1)
+            {
+                MessageBox.Show("Application already running !");
+                Shutdown(-1);
+                return;
+            }
+            Configure(Path.Combine(Settings.Instance.LogFolder, "Capture.Workflow.log"));
+            GoogleAnalytics.Instance.TrackEvent("Application", "Start");
             WorkflowManager.Instance.LoadPlugins("Capture.Workflow.Plugins.dll");
-            Configure("app.log");
+        }
+
+        private void AppDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            //#if DEBUG
+            //      // In debug mode do not custom-handle the exception, let Visual Studio handle it
+
+            //      e.Handled = false;
+
+            //#else
+
+            //          ShowUnhandeledException(e);    
+
+            //#endif
+            ShowUnhandeledException(e);
+        }
+
+        private void ShowUnhandeledException(DispatcherUnhandledExceptionEventArgs e)
+        {
+            e.Handled = true;
+
+            Log.Error("Unhandled error ", e.Exception);
+            string errorMessage =
+                string.Format("Unhanded Exception {0}", e.Exception.Message + (e.Exception.InnerException != null
+                                                        ? "\n" +
+                                                          e.Exception.InnerException.Message
+                                                        : null));
+
+            GoogleAnalytics.Instance.TrackException(e.Exception.Message, true);
+
+            if (e.Exception.GetType() == typeof(MissingMethodException))
+            {
+                Log.Error("Damaged installation. Application exiting ");
+                MessageBox.Show(
+                    "Application crash !! Damaged installation!\nPlease unintall the aplication from control panel and reinstall it!");
+            }
+            else
+            {
+                SendCrashReport(e.Exception);
+                MessageBox.Show(errorMessage, "Application crash !!", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            Current?.Shutdown();
+        }
+
+        private void SendCrashReport(Exception e)
+        {
+            try
+            {
+                var body = "Version :" + Assembly.GetExecutingAssembly().GetName().Version + "\n" +
+                       "Client Id" + (Settings.Instance.ClientId ?? "") + "\n" ;
+                var error = "";
+                if (e != null)
+                {
+                    error = e.Message;
+                    body += e.StackTrace+"\n";
+                    if (e.InnerException != null)
+                    {
+                        error = e.InnerException.Message;
+                        body += "----------------------------------" + "\n";
+                        body += e.InnerException.StackTrace;
+                    }
+                }
+                Utils.SendEmail(body, "Capture.Workflow Crash report - "+error,"error_report@digicamcontrol.com" , "error_report@digicamcontrol.com",Path.Combine(Settings.Instance.LogFolder, "Capture.Workflow.log") );
+            }
+            catch (Exception )
+            {
+            }
         }
 
         public static void Configure(string logFile)
         {
+            Utils.CreateFolder(logFile);
             Configure("Capture.Workflow", logFile);
             Log.LogDebug += Log_LogDebug;
             Log.LogError += Log_LogError;
@@ -38,6 +120,8 @@ namespace Capture.Workflow
             try
             {
                 Log.Debug("Application version : " + Assembly.GetEntryAssembly().GetName().Version);
+                ServiceProvider.Instance.DeviceManager.AddFakeCamera();
+                ServiceProvider.Instance.DeviceManager.ConnectToCamera();
             }
             catch { }
         }
@@ -63,7 +147,7 @@ namespace Capture.Workflow
                     Layout =
                         new PatternLayout(
                             "%d [%t]%-5p %c [%x] - %m%n"),
-                    MaximumFileSize = "1000KB",
+                    MaximumFileSize = "10000KB",
                     MaxSizeRollBackups = 5,
                     RollingStyle = RollingFileAppender.RollingMode.Size,
                     AppendToFile = true,
@@ -81,6 +165,13 @@ namespace Capture.Workflow
                 BasicConfigurator.Configure(ta);
 #endif
             }
+        }
+
+        private void Application_SessionEnding(object sender, SessionEndingCancelEventArgs e)
+        {
+            QueueManager.Instance.Stop();
+            Settings.Instance.Save();
+            GoogleAnalytics.Instance.TrackEvent("Application","Stop");
         }
 
     }

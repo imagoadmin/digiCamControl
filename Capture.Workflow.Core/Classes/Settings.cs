@@ -29,6 +29,10 @@ namespace Capture.Workflow.Core.Classes
             }
         }
 
+        public string ClientId { get; set; }
+        public bool SendStatistics { get; set; }
+
+
         public static string BasePath => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
         public static string DataPath => Path.Combine(
@@ -36,13 +40,16 @@ namespace Capture.Workflow.Core.Classes
 
         public string TempFolder => Path.Combine(DataPath, "Temp");
         public string WorkflowFolder => Path.Combine(DataPath, "Workflows");
+        public string DefaultWorkflowFolder => Path.Combine(BasePath, "Workflows");
         public string CacheFolder => Path.Combine(DataPath, "Cache");
-
+        public string LogFolder => Path.Combine(DataPath, "Log");
+        public string QueueFolder => Path.Combine(DataPath, "Queue");
 
 
         public Settings()
         {
-
+            ClientId = Guid.NewGuid().ToString();
+            SendStatistics = true;
         }
 
         public void Save()

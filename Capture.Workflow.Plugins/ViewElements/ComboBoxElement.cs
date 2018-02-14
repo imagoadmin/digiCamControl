@@ -28,6 +28,11 @@ namespace Capture.Workflow.Plugins.ViewElements
             WorkFlowViewElement element = new WorkFlowViewElement();
             element.Properties.Items.Add(new CustomProperty()
             {
+                Name = "(Name)",
+                PropertyType = CustomPropertyType.String
+            });
+            element.Properties.Items.Add(new CustomProperty()
+            {
                 Name = "Caption",
                 PropertyType = CustomPropertyType.String
             });
@@ -41,6 +46,12 @@ namespace Capture.Workflow.Plugins.ViewElements
             {
                 Name = "ValueList",
                 PropertyType = CustomPropertyType.String,
+                Value = ""
+            });
+            element.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "ValueListVariable",
+                PropertyType = CustomPropertyType.Variable,
                 Value = ""
             });
             element.Properties.Items.Add(new CustomProperty()
@@ -109,6 +120,12 @@ namespace Capture.Workflow.Plugins.ViewElements
                 PropertyType = CustomPropertyType.Color,
                 Value = "Transparent"
             });
+            element.Properties.Items.Add(new CustomProperty()
+            {
+                Name = "Editable",
+                PropertyType = CustomPropertyType.Bool,
+                Value = "True"
+            });
             return element;
         }
 
@@ -122,10 +139,20 @@ namespace Capture.Workflow.Plugins.ViewElements
             };
 
             viewElement.SetSize(comboBox, context);
+            var variable = viewElement.Properties["Variable"].ToString(context);
+            comboBox.DataContext = viewElement.Parent.Parent;
+            if (string.IsNullOrEmpty(viewElement.Properties["ValueListVariable"].ToString(context)))
+            {
+                comboBox.ItemsSource = viewElement.Properties["ValueList"].ToString(context).Split('|');
+            }
+            else
+            {
+                comboBox.SetBinding(ComboBox.ItemsSourceProperty, "Variables[" + viewElement.Properties["ValueListVariable"].ToString(context) + "].ValueList");
+            }
 
-            comboBox.ItemsSource = viewElement.Properties["ValueList"].ToString(context).Split('|');
-            comboBox.DataContext = viewElement.Parent.Parent.Variables[viewElement.Properties["Variable"].ToString(context)]; 
-            comboBox.SetBinding(ComboBox.SelectedValueProperty, "Value");
+            comboBox.SetBinding(ComboBox.TextProperty, "Variables["+variable+"].Value");
+            comboBox.IsEditable = viewElement.Properties["Editable"].ToBool(context);
+
 
             if (viewElement.Properties["BackgroundColor"].ToString(context) != "Transparent" &&
                 viewElement.Properties["BackgroundColor"].ToString(context) != "#00FFFFFF")
@@ -145,6 +172,9 @@ namespace Capture.Workflow.Plugins.ViewElements
                 FontSize = viewElement.Properties["FontSize"].ToInt(context),
                 VerticalAlignment = VerticalAlignment.Center,
             };
+            if (viewElement.Properties["Orientation"].ToString(context) == "Vertical")
+                label.TextAlignment = TextAlignment.Center;
+
 
             if (viewElement.Properties["LabelWidth"].ToInt(context) > 0)
                 label.Width = viewElement.Properties["LabelWidth"].ToInt(context);
