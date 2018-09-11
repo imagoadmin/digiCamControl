@@ -180,9 +180,9 @@
             </MenuItem>
             <MenuItem Header="{T:TranslateExtension MenuView}" Padding="5,2" Margin="1" Visibility="{Binding Branding.ShowViewMenu, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <MenuItem Header="{T:TranslateExtension LabelShowFocusPoints}" IsChecked="{Binding ShowFocusPoints, Mode=OneWay}" Command="{Binding ToggleFocusCommand}" IsCheckable="True"/>
-                <MenuItem Header="{T:TranslateExtension LabelFlip}" IsChecked="{Binding FlipPreview}" Command="{Binding FlipPreviewCommand}" IsCheckable="True"/>
-                <MenuItem Header="{T:TranslateExtension LabelEnhancedThumbs}" IsChecked="{Binding EnhancedThumbs}" Command="{Binding EnhancedThumbsCommand}" IsCheckable="True"/>
-                <MenuItem Header="{T:TranslateExtension LabelShowThumbInfo}" IsChecked="{Binding ShowThumbInfo}" Command="{Binding ShowThumbInfoCommand}" IsCheckable="True"/>
+                <MenuItem Header="{T:TranslateExtension LabelFlip}" IsChecked="{Binding FlipPreview}" IsCheckable="True"/>
+                <MenuItem Header="{T:TranslateExtension LabelEnhancedThumbs}" IsChecked="{Binding EnhancedThumbs}" IsCheckable="True"/>
+                <MenuItem Header="{T:TranslateExtension LabelShowThumbInfo}" IsChecked="{Binding ShowThumbInfo}" IsCheckable="True"/>
                 <Separator/>
                 <MenuItem Header="{T:TranslateExtension MenuLayout}">
                     <MenuItem Header="{T:TranslateExtension MenuLayoutLandscape}" Command="{Binding SetLayoutCommand}" CommandParameter="Normal"/>
@@ -325,15 +325,19 @@
                                 Background="{DynamicResource MaterialDesignDivider}"
                                 SnapsToDevicePixels="True" />-->
                         <materialDesign:Card Margin="4">
-                            <Expander  Header="{T:TranslateExtension Session}" VerticalAlignment="Top" IsExpanded="True" 
+                            <Expander  VerticalAlignment="Top" IsExpanded="True" 
                                        Visibility="{Binding Source={x:Static Member=Core:ServiceProvider.Branding}, Path=ShowSessionPanel, Converter={StaticResource BooleanToVisibilityConverter1}}">
+                                <Expander.Header>
+                                    <Grid>
+                                        <TextBlock Text="{T:TranslateExtension Session}" VerticalAlignment="Center" FontSize="15"/>
+                                        <Button Margin="0" VerticalAlignment="Center" HorizontalAlignment="Right" Style="{DynamicResource MaterialDesignFlatButton}" HorizontalContentAlignment="Right" Padding="0" Click="Button_Click_3">
+                                            <materialDesign:PackIcon Width="20" Height="20" Kind="Settings" />
+                                        </Button>
+                                    </Grid>
+                                </Expander.Header>
                                 <StackPanel Orientation="Vertical">
                                     <Border Background="{DynamicResource MaterialDesignDivider}" Height="1" HorizontalAlignment="Stretch" SnapsToDevicePixels="True" />
                                     <Grid Margin="24,8,24,16" >
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="1*" />
-                                            <ColumnDefinition Width="1*" />
-                                        </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
@@ -360,17 +364,19 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
 
-                                        <Label Grid.Row="2" Content="{T:TranslateExtension LabelCaptureName}" HorizontalContentAlignment="Right" Margin="4"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Path=DefaultSession.CaptureName, UpdateSourceTrigger=PropertyChanged}" Margin="4" Name="txt_CaptureName"/>
+                                        <TextBox Grid.Row="2" Grid.Column="0"  Text="{Binding Path=DefaultSession.CaptureName, UpdateSourceTrigger=PropertyChanged}" Margin="4" Name="txt_CaptureName"
+                                                 materialDesign:HintAssist.Hint="{T:TranslateExtension LabelCaptureName}"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
 
-                                        <Label Grid.Row="3" Content="{T:TranslateExtension LabelSeries}" HorizontalContentAlignment="Right" Margin="4"/>
-                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Path=DefaultSession.Series}" Margin="4" VerticalAlignment="Top"/>
+                                        <TextBox Grid.Row="3" Text="{Binding Path=DefaultSession.Series}" Margin="4" VerticalAlignment="Top"
+                                                 materialDesign:HintAssist.Hint="{T:TranslateExtension LabelSeries}"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
                                     </Grid>
                                 </StackPanel>
                             </Expander>
                         </materialDesign:Card>
                         <materialDesign:Card Margin="4" Visibility="{Binding  Path=DefaultSession.AlowFolderChange, Converter={StaticResource BooleanToVisibilityConverter1}}">
-                            <Expander Header="{T:TranslateExtension LabelFolderSelector}" VerticalAlignment="Top" IsExpanded="True"  MaxHeight="200">
+                            <Expander Header="{T:TranslateExtension LabelFolderSelector}" VerticalAlignment="Top" IsExpanded="False"  MaxHeight="200">
                                 <StackPanel Orientation="Vertical">
                                     <Border Background="{DynamicResource MaterialDesignDivider}" Height="1" HorizontalAlignment="Stretch" SnapsToDevicePixels="True" />
                                     <Panels:DirectorySelectorControl SelectedPath="{Binding Path=DefaultSession.Folder, Mode=TwoWay}" Margin="24,8,24,16"/>

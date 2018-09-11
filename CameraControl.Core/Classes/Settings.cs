@@ -292,6 +292,10 @@ namespace CameraControl.Core.Classes
             }
         }
 
+        [JsonIgnore]
+        [XmlIgnore]
+        public Branding Branding => ServiceProvider.Branding;
+
         public List<string> AvaiableWebAddresses
         {
             get
@@ -804,6 +808,7 @@ namespace CameraControl.Core.Classes
         private string _currentThemeNameNew;
 
         [XmlIgnore]
+        [JsonIgnore]
         public ObservableCollection<CameraPreset> CameraPresets
         {
             get { return _cameraPresets; }
@@ -932,6 +937,7 @@ namespace CameraControl.Core.Classes
 
         public bool WebcamSupport { get; set; }
 
+        public bool WiaDeviceSupport { get; set; }
 
         public ObservableCollection<PluginSetting> PluginSettings { get; set; }
 
@@ -1103,6 +1109,7 @@ namespace CameraControl.Core.Classes
             ExternalDeviceWaitForFocus = 1000;
 
             WebcamSupport = true;
+            WiaDeviceSupport = true;
         }
 
 
@@ -1296,7 +1303,7 @@ namespace CameraControl.Core.Classes
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(ConfigFile));
                 }
-                if (File.Exists(ConfigFile))
+                if (File.Exists(ConfigFile) || File.Exists(ConfigFile.Replace(".json", ".xml")))
                 {
                     settings = LoadSettings(ConfigFile, settings);
                 }
@@ -1451,7 +1458,7 @@ namespace CameraControl.Core.Classes
                 //serializer.Serialize(writer, this);
                 //writer.Close();
 
-                var json = JsonConvert.SerializeObject(this);
+                var json = JsonConvert.SerializeObject(this, Formatting.Indented);
                 File.WriteAllText(ConfigFile, json);
                 // save preset in separated files
                 foreach (var cameraPreset in this.CameraPresets)
